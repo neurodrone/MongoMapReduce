@@ -12,10 +12,18 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCursor;
+import com.mongodb.MapReduceOutput;
+import com.mongodb.util.JSON;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.UnknownHostException;
+import java.io.IOException;
+import com.google.gson.Gson;
 
 public class MongoMapReduce {
 	
@@ -39,12 +47,32 @@ public class MongoMapReduce {
 		this.dbcoll = dbcoll;
 	}
 
-	public void runMR() {
-		String mapper = "function(){this.tags.forEach(function(z){emit(z,{count:1});});};";
+	public DBCursor find(String collectionName) {
+		DBCollection dbcollOut = db.getCollection(collectionName);
+		return dbcollOut.find(); 
+	}
+
+	public ArrayList<Collection> runMR() {
+		DBObject dbo = new BasicDBObject();
+		ArrayList<Collection> arrColl = new ArrayList<Collection>();
+		String mapper = "function(){this.tags.forEach(function(z){emit(z,{count:1});});};"; // Simple word-counting javascript mapper/reducer
 		String reducer = "function(key,values){var total=0;for(var i=0; i<values.length; i++)total+=values[i].count; return {count: total};};";
 		String output = "myout";
-		dbcoll.mapReduce(mapper, reducer, output, null);
-		System.out.println("Ran Mapreduce. Check the output in Mongo CLI using: db." + output + ".find();");
+		DBCursor dbcur = dbcoll.mapReduce(mapper, reducer, output, null).getOutputCollection().find();
+		while (dbcur.hasNext()) {
+			dbo = dbcur.next();
+			arrColl.add(new Gson().fromJson(dbo.toString(), Collection.class));
+		}
+		return arrColl;
+
+	}
+
+	public static void printResults(Result results) {
+		ArrayList<Collection> arrColl = results.getArrColl();
+		System.out.println("Displaying results:");
+		for (Collection coll : arrColl) {
+			System.out.println("The word \'" + coll.get_id() + "\' occurred " + coll.getValue().getCount() + " times.");
+		}
 	}
 
 	public void randomInsert() {
@@ -64,7 +92,7 @@ public class MongoMapReduce {
 		System.out.println("Insertion complete.");
 	}
 
-	public static void main(String[] args) throws java.net.UnknownHostException, java.io.IOException {
+	public static void main(String[] args) throws UnknownHostException, IOException {
 
 		if (args.length < 1) {
 			System.out.println("Incorrent usage.");
@@ -79,7 +107,6 @@ public class MongoMapReduce {
 
 		String dbName = args[0];
 		String collName = args[1];
-		
 		m = new Mongo(); // Initiate connection using default parameters. i.e. ("localhost", 27017)
 		
 		DB db = m.getDB(dbName);
@@ -99,6 +126,37 @@ public class MongoMapReduce {
 
 		MongoMapReduce mmapred = new MongoMapReduce(db, dbcoll);
 		mmapred.randomInsert();
-		mmapred.runMR();
+
+		Result results = new Result();
+		results.setArrColl(mmapred.runMR());
+		
+		MongoMapReduce.printResults(results);
+	}
+
+	class Collection {
+		private String _id;
+		private Count value;
+		public String get_id() { return _id; }
+		public Count getValue() { return value; }
+		public void set_id(String _id) { this._id = _id; }
+		public void setValue(Count value) { this.value = value; }
+		public String toString() {
+			return String.format("_id:%s,value:%s", _id, value);
+		}
+	}
+
+	class Count {
+		private Integer count;
+		public Integer getCount() { return count; }
+		public void setCount(Integer count) { this.count = count; }
+		public String toString() {
+			return String.format("count:%d", count);
+		}
+	}
+
+	public static class Result {
+		private ArrayList<Collection> arrColl;
+		public ArrayList<Collection> getArrColl() { return arrColl; }
+		public void setArrColl(ArrayList<Collection> arrColl) { this.arrColl = arrColl; }
 	}
 }
