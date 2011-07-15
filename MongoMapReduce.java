@@ -1,5 +1,5 @@
 /**
- * @author	Vaibhav Bhembre <vaibhav@bhembre.com>
+ * @author Vaibhav Bhembre <vaibhav@bhembre.com>
  * @version 1.0
  * @since 2011.0714
  */
@@ -67,14 +67,6 @@ public class MongoMapReduce {
 
 	}
 
-	public static void printResults(Result results) {
-		ArrayList<Collection> arrColl = results.getArrColl();
-		System.out.println("Displaying results:");
-		for (Collection coll : arrColl) {
-			System.out.println("The word \'" + coll.get_id() + "\' occurred " + coll.getValue().getCount() + " times.");
-		}
-	}
-
 	public void randomInsert() {
 		String[] args = null;
 		args = new String[] { "dogs", "cats" };
@@ -97,12 +89,12 @@ public class MongoMapReduce {
 		if (args.length < 1) {
 			System.out.println("Incorrent usage.");
 			System.out.println("Argument 0 missing. Database name required.");
-			System.exit(2);
+			System.exit(1);
 		}
 		if (args.length < 2) {
 			System.out.println("Incorrent usage.");
 			System.out.println("Argument 1 missing. Collection name required.");
-			System.exit(2);
+			System.exit(1);
 		}
 
 		String dbName = args[0];
@@ -128,9 +120,17 @@ public class MongoMapReduce {
 		mmapred.randomInsert();
 
 		Result<Collection> results = new Result<Collection>();
-		results.setArrColl(mmapred.runMR());
+		results.setResult(mmapred.runMR());
 		
-		MongoMapReduce.printResults(results);
+		ArrayList<String> strResults = results.getStringResults();
+
+		if (strResults == null) return;
+
+		System.out.println("Displaying results:");
+		for (String str : strResults) {
+			String[] sub = str.split(",");
+			System.out.format("The word \'%s\' occurred %s times.\n", sub[0].split(":")[1], sub[1].split(":")[2]);
+		}
 	}
 
 	class Collection {
@@ -141,7 +141,7 @@ public class MongoMapReduce {
 		public void set_id(String _id) { this._id = _id; }
 		public void setValue(Count value) { this.value = value; }
 		public String toString() {
-			return String.format("_id:%s,value:%s", _id, value);
+			return String.format("name:%s,value:%s", _id, value);
 		}
 	}
 
@@ -155,8 +155,19 @@ public class MongoMapReduce {
 	}
 
 	public static class Result<T> {
-		private ArrayList<T> arrColl;
-		public ArrayList<T> getArrColl() { return arrColl; }
-		public void setArrColl(ArrayList<T> arrColl) { this.arrColl = arrColl; }
+		private ArrayList<T> arrResult = null;
+		public ArrayList<T> getResult() { return arrResult; }
+		public void setResult(ArrayList<T> arrResult) { this.arrResult = arrResult; }
+		public ArrayList<String> getStringResults() {
+			if (arrResult == null) {
+				System.err.println("No results found.");
+				return null;
+			}
+			ArrayList<String> strResults = new ArrayList<String>();
+			for (T result : arrResult) {
+				strResults.add(result.toString());
+			}
+			return strResults;
+		}
 	}
 }
