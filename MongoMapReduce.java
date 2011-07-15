@@ -127,7 +127,7 @@ public class MongoMapReduce {
 		MongoMapReduce mmapred = new MongoMapReduce(db, dbcoll);
 		mmapred.randomInsert();
 
-		Result results = new Result();
+		Result<Collection> results = new Result<Collection>();
 		results.setArrColl(mmapred.runMR());
 		
 		MongoMapReduce.printResults(results);
@@ -154,9 +154,9 @@ public class MongoMapReduce {
 		}
 	}
 
-	public static class Result {
-		private ArrayList<Collection> arrColl;
-		public ArrayList<Collection> getArrColl() { return arrColl; }
-		public void setArrColl(ArrayList<Collection> arrColl) { this.arrColl = arrColl; }
+	public static class Result<T> {
+		private ArrayList<T> arrColl;
+		public ArrayList<T> getArrColl() { return arrColl; }
+		public void setArrColl(ArrayList<T> arrColl) { this.arrColl = arrColl; }
 	}
 }
